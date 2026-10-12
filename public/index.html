@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<title>:: REMOTE_LINK v1.0 ::</title>
+<style>
+  :root {
+    --bg: #070203;
+    --panel: #120607;
+    --red: #ff2b3d;
+    --red-dim: #ff2b3d55;
+    --red-faint: #ff2b3d22;
+    --maroon: #8a0f1a;
+    --maroon-bright: #c41c2e;
+    --text: #f2c9cd;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Share Tech Mono", monospace;
+    overflow-x: hidden;
+  }
+  #rain {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.55;
+  }
+  .scanlines {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.15) 0px,
+      rgba(0,0,0,0.15) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: multiply;
+  }
+  .vignette {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(7,2,3,0.55) 100%);
+  }
+  .frame {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--red-dim);
+    padding-bottom: 14px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin: 0;
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red-dim);
+  }
+  h1::before { content: "> "; opacity: 0.7; }
+  .dist {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.55;
+    letter-spacing: 0.08em;
+  }
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    letter-spacing: 0.05em;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #555;
+    box-shadow: 0 0 6px #555;
+    transition: all 0.2s ease;
+  }
+  .dot.live {
+    background: var(--red);
+    box-shadow: 0 0 10px var(--red);
+  }
+  #statusText { text-transform: uppercase; }
+
+  .panel {
+    background: rgba(18, 6, 7, 0.88);
+    backdrop-filter: blur(2px);
+    border: 1px solid var(--red-dim);
+    padding: 18px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .panel::before {
+    content: "[ SESSION_CONTROL ]";
+    position: absolute;
+    top: -9px;
+    left: 14px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    opacity: 0.85;
+  }
+  .room-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 12px;
+    border: 1px solid var(--red-dim);
+    background: #0d0203;
+    color: var(--red);
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+  input[type="text"]::placeholder { color: #7a3a40; }
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--red);
+    box-shadow: 0 0 8px var(--red-faint);
+  }
+  button {
+    padding: 10px 18px;
+    border: 1px solid var(--red);
+    background: transparent;
+    color: var(--red);
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  button:hover:not(:disabled) {
+    background: var(--red);
+    color: #0d0203;
+    box-shadow: 0 0 12px var(--red-dim);
+  }
+  button:disabled {
+    opacity: 0.3;
+    border-color: #4a2226;
+    color: #4a2226;
+    cursor: not-allowed;
+  }
+  button#stopBtn { border-color: var(--maroon-bright); color: var(--maroon-bright); }
+  button#stopBtn:hover:not(:disabled) {
+    background: var(--maroon-bright); color: #0d0203; box-shadow: 0 0 12px var(--maroon-bright);
+  }
+
+  .videos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 700px) {
+    .videos { grid-template-columns: 1fr; }
+  }
+  .video-box {
+    background: #050101;
+    border: 1px solid var(--red-dim);
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    position: relative;
+  }
+  .video-box video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #050101;
+    cursor: pointer;
+  }
+  .video-label {
+    position: absolute;
+    top: 8px; left: 10px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--red);
+    background: rgba(0,0,0,0.6);
+    padding: 3px 8px;
+    border: 1px solid var(--red-dim);
+  }
+  .fullscreen-btn {
+    position: absolute;
+    bottom: 8px; right: 8px;
+    width: 30px; height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--red-dim);
+    color: var(--red);
+    cursor: pointer;
+    padding: 0;
+    z-index: 3;
+  }
+  .fullscreen-btn:hover {
+    background: var(--red);
+    color: #0d0203;
+    box-shadow: 0 0 10px var(--red-dim);
+  }
+  .fullscreen-btn svg { width: 16px; height: 16px; display: block; }
+  .stats {
+    font-size: 12px;
+    color: var(--red);
+    opacity: 0.8;
+    margin-top: 10px;
+    letter-spacing: 0.04em;
+  }
+  .stats::before { content: "// "; opacity: 0.6; }
+  .hint {
+    font-size: 12px;
+    line-height: 1.7;
+    opacity: 0.65;
+    margin-top: 14px;
+    color: var(--text);
+  }
+  code {
+    background: #0d0203;
+    border: 1px solid var(--red-dim);
+    color: var(--red);
+    padding: 1px 6px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<div class="frame">
+  <header>
+    <h1>REMOTE_LINK</h1>
+    <span class="dist">NODE_A: IN &nbsp;⇄&nbsp; NODE_B: UK</span>
+  </header>
+
+  <div class="status-row">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">Link down</span>
+  </div>
+
+  <div class="panel">
+    <div class="room-row">
+      <input type="text" id="roomInput" placeholder="ENTER_SESSION_KEY..." />
+      <button id="joinBtn">Connect</button>
+      <button id="shareBtn" disabled>Broadcast screen</button>
+      <button id="stopBtn" disabled>Kill feed</button>
+    </div>
+    <div class="hint">
+      Make up any session key and agree on it together (e.g. <code>anilroy2026</code>). Both of you type the exact same key and hit "Connect". Then whoever wants to share clicks "Broadcast screen".
+    </div>
+  </div>
+
+  <div class="videos">
+    <div class="video-box">
+      <video id="localVideo" autoplay muted playsinline></video>
+      <div class="video-label">Local_feed</div>
+      <button class="fullscreen-btn" data-target="localVideo" title="Fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+    </div>
+    <div class="video-box">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <div class="video-label" id="remoteLabel">Remote_feed</div>
+      <button class="fullscreen-btn" data-target="remoteVideo" title="Fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="stats" id="statsLine"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/client.js"></script>
+<script>
+  // Triangulated mesh background with a light that follows the cursor.
+  // Built from scratch (canvas + JS) — maroon/red palette.
+  (function () {
+    const canvas = document.getElementById("rain");
+    const ctx = canvas.getContext("2d");
+    let w, h, points, triangles;
+    const CELL = 68; // grid spacing — smaller = more triangles
+    const JITTER = 22;
+
+    let mouse = { x: -9999, y: -9999 };
+    window.addEventListener("mousemove", (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+    window.addEventListener("mouseleave", () => {
+      mouse.x = -9999;
+      mouse.y = -9999;
+    });
+
+    function buildGrid() {
+      const cols = Math.ceil(w / CELL) + 2;
+      const rows = Math.ceil(h / CELL) + 2;
+      points = [];
+      for (let r = 0; r < rows; r++) {
+        points[r] = [];
+        for (let c = 0; c < cols; c++) {
+          points[r][c] = {
+            x: c * CELL + (Math.random() * 2 - 1) * JITTER,
+            y: r * CELL + (Math.random() * 2 - 1) * JITTER
+          };
+        }
+      }
+      triangles = [];
+      for (let r = 0; r < rows - 1; r++) {
+        for (let c = 0; c < cols - 1; c++) {
+          const a = points[r][c];
+          const b = points[r][c + 1];
+          const cPt = points[r + 1][c];
+          const d = points[r + 1][c + 1];
+          triangles.push([a, b, cPt]);
+          triangles.push([b, d, cPt]);
+        }
+      }
+    }
+
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      buildGrid();
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function draw() {
+      ctx.fillStyle = "#2a0509";
+      ctx.fillRect(0, 0, w, h);
+
+      const lightRadius = 420;
+
+      for (const tri of triangles) {
+        const cx = (tri[0].x + tri[1].x + tri[2].x) / 3;
+        const cy = (tri[0].y + tri[1].y + tri[2].y) / 3;
+        const dist = Math.hypot(cx - mouse.x, cy - mouse.y);
+        const proximity = Math.max(0, 1 - dist / lightRadius);
+        const glow = Math.pow(proximity, 1.4);
+
+        // visible maroon base at rest, blazing red/white-hot near the cursor
+        const r = Math.round(60 + glow * 195);
+        const g = Math.round(8 + glow * 90);
+        const b = Math.round(14 + glow * 90);
+
+        ctx.beginPath();
+        ctx.moveTo(tri[0].x, tri[0].y);
+        ctx.lineTo(tri[1].x, tri[1].y);
+        ctx.lineTo(tri[2].x, tri[2].y);
+        ctx.closePath();
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255, 90, 100, ${0.12 + glow * 0.6})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+</script>
+</body>
+</html>
